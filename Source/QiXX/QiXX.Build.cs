@@ -13,27 +13,14 @@ public class QiXX : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
-			"EnhancedInput",
-			"AIModule",
-			"NavigationSystem",
-			"StateTreeModule",
-			"GameplayStateTreeModule",
-			"Niagara",
-			"UMG",
-			"Slate"
+			"EnhancedInput"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"QiXX",
-			"QiXX/Isometric",
-			"QiXX/Variant_Strategy",
-			"QiXX/Variant_Strategy/UI",
-			"QiXX/Variant_TwinStick",
-			"QiXX/Variant_TwinStick/AI",
-			"QiXX/Variant_TwinStick/Gameplay",
-			"QiXX/Variant_TwinStick/UI"
+			"QiXX/Isometric"
 		});
 
 		// Uncomment if you are using Slate UI
