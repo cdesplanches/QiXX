@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "blueprint-mcp": {
+      "type": "local",
+      "command": [
+        "node",
+        "Plugins/BlueprintMCP/Tools/dist/index.js"
+      ],
+      "enabled": true,
+      "environment": {
+        "UE_PROJECT_DIR": "C:/Codes/QiXX"
+      }
+    }
+  }
+}
