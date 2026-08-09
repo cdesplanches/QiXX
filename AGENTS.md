@@ -8,9 +8,9 @@ Guide de travail pour les agents IA (OpenCode) sur le projet QiXX.
 - **Projet** : `C:\Codes\QiXX\QiXX.uproject`. Module runtime `QiXX` (`Source/QiXX`).
 - **Style** : jeu **isométrique** (Top-Down 2.5D). Seule la variante isométrique est conservée.
 - **Plugins** :
-  - `BlueprintMCP` (sous-dossier de `Plugins/`) — serveur MCP pour piloter l'éditeur/le contenu (outils, indexation, snapshots). **Repo git embarqué** (pas de submodule).
-  - `Autonomix` — assistant IA in-éditeur (LLM, exécution d'actions). **Repo git embarqué** (pas de submodule).
-  - `VisualStudioTools` (inclus avec le moteur, activé) — test explorer. Tracké en **fichiers normaux** (pas de repo interne).
+  - `BlueprintMCP` (sous-dossier de `Plugins/`) — serveur MCP pour piloter l'éditeur/le contenu (outils, indexation, snapshots). **Copie trackée dans le projet** (pas de repo interne).
+  - `Autonomix` — assistant IA in-éditeur (LLM, exécution d'actions). **Copie trackée dans le projet** (pas de repo interne).
+  - `VisualStudioTools` (inclus avec le moteur, activé) — test explorer. Tracké en **fichiers normaux**.
   - `ModelingToolsEditorMode` (inclus, activé).
 - **Logs** : catégorie `LogQiXX` (`QiXX.h`). Toujours logger via `UE_LOG(LogQiXX, ...)`.
 
@@ -96,9 +96,9 @@ Autres BPs de gameplay (Blueprints purs, pas de classe C++ dédiée) :
 
 - **Ne jamais commiter sans demande explicite de l'utilisateur.**
 - `Binaries/`, `Intermediate/`, `DerivedDataCache/`, `Saved/`, `*.log`, `*.dll`, `*.pdb`, `*.exe` sont **ignorés** (`Build/` et `Saved/` du projet sont régénérés par les builds).
-- `Plugins/BlueprintMCP` et `Plugins/Autonomix` sont des **repos git embarqués** (gitlinks, **pas** de `.gitmodules`). Décision : contrôle manuel des versions. Procédure : commiter d'abord dans leur repo interne, puis `git add Plugins/<nom>` dans le projet pour figer le pointeur (son commit `160000`). Ne jamais mélanger leurs commits internes dans un commit du projet.
-  - Conséquence : `git status` les affiche comme modifiés dès que leur état interne change ; un clone du projet ne récupère pas leur contenu (seulement les pointeurs) — les cloner à part.
-- `Plugins/VisualStudioTools` est tracké en **fichiers normaux** dans le dépôt du projet.
+- `Plugins/BlueprintMCP`, `Plugins/Autonomix` et `Plugins/VisualStudioTools` sont trackés en **fichiers normaux** dans le dépôt (copies autonomes). Décision : le projet QiXX est **autonome** — **aucun** repo interne, **aucun** submodule, **aucune** dépendance distante. Un clone du projet contient tout.
+  - Conséquence : pas de `.gitmodules`, pas de pointeurs gitlink. Pour mettre à jour un plugin, remplacer son contenu par la nouvelle version (copie de fichiers), sans `.git` interne.
+  - Serveur MCP : s'exécute depuis `Plugins/BlueprintMCP/Tools/dist/` (compilé, tracké). `Tools/node_modules/` est ignoré — `npm install` une fois dans `Plugins/BlueprintMCP/Tools/` s'il est absent. `Plugins/Autonomix/Config/` est ignoré (clés API utilisateur — ne jamais commiter).
 - Messages de commit : courts, style de l'historique existant (impératif concis, ex. « Adjust Enemy position + capsule collider »), sur une ligne.
 - Vérifier `git status` + `git diff` avant tout commit ; ne stager que les fichiers voulus ; ne jamais commiter de secrets.
 - Le fichier `Binaries/Win64/UnrealEditor.modules` est **régénéré** par le build et ignoré — ne pas le commiter.

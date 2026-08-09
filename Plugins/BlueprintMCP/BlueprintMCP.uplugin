@@ -1,0 +1,19 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Blueprint MCP",
+	"Description": "MCP server for inspecting and modifying UE5 Blueprint assets from AI coding assistants",
+	"Category": "Editor",
+	"CreatedBy": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "BlueprintMCP",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
