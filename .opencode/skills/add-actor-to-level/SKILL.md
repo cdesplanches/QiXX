@@ -31,15 +31,31 @@ spawné au lancement de la map (visible en PIE, pas dans la vue éditeur).
 4. **Câbler BeginPlay → Spawn** :
    `connect_pins(blueprint="<Map>", sourceNodeId="<BeginPlayId>", sourcePinName="then",
    targetNodeId="<SpawnNodeId>", targetPinName="execute")`.
-5. **Régler la transformation de spawn** (optionnel) :
-   `set_pin_default(blueprint="<Map>", nodeId="<SpawnNodeId>", pinName="Spawn Transform",
-   value="Location=(X=0.0,Y=0.0,Z=0.0) Rotation=(Pitch=0.0,Yaw=0.0,Roll=0.0) Scale=(X=1.0,Y=1.0,Z=1.0)")`.
-   Adapter le nom de pin et le format au retour de l'étape 3 si différent.
+5. **Câbler le Spawn Transform (Obligatoire)** : le pin `SpawnTransform` est un param
+   "by ref" — il doit avoir une entrée câblée, sinon `validate_blueprint` échoue.
+   - `set_pin_default` ne fonctionne PAS sur ce pin struct (valeur ignorée).
+   - `MakeStruct` type `Transform` ne fonctionne PAS (`not a BlueprintType`).
+   - Utiliser la fonction `MakeTransform` de `KismetMathLibrary` :
+     `add_node(blueprint="<Map>", graph="EventGraph", nodeType="CallFunction",
+     className="KismetMathLibrary", functionName="MakeTransform")`
+     puis `connect_pins(... sourceNodeId="<MakeTransformId>", sourcePinName="ReturnValue",
+     targetNodeId="<SpawnNodeId>", targetPinName="SpawnTransform")`.
+   - Défauts par pin (Location `0,0,0`, Rotation `0,0,0`, Scale `1,1,1`) → spawn à l'origine.
+     Pour un spawn ailleurs, régler les pins Location/Rotation/Scale via `set_pin_default`.
 6. **Compiler** : `validate_blueprint(blueprint="<Map>")` → doit retourner `Valid: true`.
    Compile + sauvegarde le package .umap.
 7. **Informer l'utilisateur** : jouer la map (Play) pour voir l'acteur apparaître.
    Rappeler la limite du workaround : pas d'instance visible dans l'éditeur,
    l'acteur est spawné à l'exécution.
+
+## Pièges connus
+
+- **Map sans Level Blueprint** : si `get_blueprint_graph` échoue avec « level blueprint
+  could not be retrieved », la map n'a jamais eu de Level Blueprint créé
+  (`LoadBlueprintByName` utilise `GetLevelScriptBlueprint(true)` = ne crée pas).
+  Déclencher la création en lançant un search ciblé sur le path de la map :
+  `search_blueprints(query="<n'importe quoi>", path="/Game/<Dossier>/")` — ce handler
+  utilise `GetLevelScriptBlueprint(false)` (crée si absent). Re-tenter ensuite la lecture.
 
 ## Notes
 
