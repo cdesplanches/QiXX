@@ -8,9 +8,9 @@ Guide de travail pour les agents IA (OpenCode) sur le projet QiXX.
 - **Projet** : `C:\Codes\QiXX\QiXX.uproject`. Module runtime `QiXX` (`Source/QiXX`).
 - **Style** : jeu **isométrique** (Top-Down 2.5D). Seule la variante isométrique est conservée.
 - **Plugins** :
-  - `BlueprintMCP` (sous-dossier de `Plugins/`) — serveur MCP pour piloter l'éditeur/le contenu (outils, indexation, snapshots). Submodule git séparé.
-  - `Autonomix` (submodule) — assistant IA in-éditeur (LLM, exécution d'actions).
-  - `VisualStudioTools` (inclus avec le moteur, activé) — test explorer.
+  - `BlueprintMCP` (sous-dossier de `Plugins/`) — serveur MCP pour piloter l'éditeur/le contenu (outils, indexation, snapshots). **Repo git embarqué** (pas de submodule).
+  - `Autonomix` — assistant IA in-éditeur (LLM, exécution d'actions). **Repo git embarqué** (pas de submodule).
+  - `VisualStudioTools` (inclus avec le moteur, activé) — test explorer. Tracké en **fichiers normaux** (pas de repo interne).
   - `ModelingToolsEditorMode` (inclus, activé).
 - **Logs** : catégorie `LogQiXX` (`QiXX.h`). Toujours logger via `UE_LOG(LogQiXX, ...)`.
 
@@ -19,14 +19,21 @@ Guide de travail pour les agents IA (OpenCode) sur le projet QiXX.
 ```
 Source/QiXX/
   QiXX.cpp / QiXX.h          Module runtime, catégorie LogQiXX
-  Isometric/                 Classe de base C++ (logique de jeu isométrique)
+  Isometric/                 Classes de base C++ (logique de jeu isométrique)
     IsometricGameMode.h/.cpp           AIsometricGameMode
     IsometricCharacter.h/.cpp          AIsometricCharacter
     IsometricPlayerController.h/.cpp   AIsometricPlayerController
 
 Content/
-  QiXX/Core/                 Blueprints parents des classes C++ (BP_QiXXGameMode, ...)
-  QiXX/Characters/ QiXX/UI/ QiXX/Assets/ QiXX/Localization/
+  QiXX/Core/                 Blueprints parents des classes C++ + input/cursor
+    BP_QiXXGameMode / BP_QiXXController / BP_QiXXCharacter
+    Input/  IMC_Default, IA_SetDestination_Click, IA_SetDestination_Touch
+    Cursor/ FX_Cursor*, M_Cursor, MI_Cursor_Red, SM_CursorMesh*, T_Arrow
+  QiXX/Characters/Hero/      BP_Player, ABP_Player
+  QiXX/Characters/Enemies/   BP_Enemy, BP_EnemyAI, BP_EnemyBeholder, BP_EnemySpawner, ABP_Enemy
+  QiXX/UI/                   WBP_HUD, WBP_Loading, WBP_GameOver
+  QiXX/Assets/               MI_Colorway
+  QiXX/Localization/         ST_UI
   Blueprints/                Blueprints utilitaires (BP_EnemyActor, BP_EnemySpawner_C)
   Level01/Lvl_01             Carte par défaut (startup + gameplay)
   MonsterForSurvivalGame/ RPGTinyFantasyForest/   Assets Megascans/content packs
@@ -34,8 +41,13 @@ Content/
 
 Classes C++ (Base) → Blueprints (Parents) :
 - `AIsometricGameMode` → `BP_QiXXGameMode` (`Content/QiXX/Core/`), défini comme `GlobalDefaultGameMode` dans `DefaultEngine.ini`.
-- `AIsometricPlayerController` → `BP_QiXXController` (WASD + Enhanced Input, `DefaultMappingContext`, `MoveAction`, `LookAction`).
+- `AIsometricPlayerController` → `BP_QiXXController` (Enhanced Input : `IMC_Default` + actions `IA_*`).
 - `AIsometricCharacter` → `BP_QiXXCharacter` (caméra isométrique via `CameraBoom` + `IsometricCamera`, pitch -45°, yaw 45°, `Health`, `WalkSpeed`).
+
+Autres BPs de gameplay (Blueprints purs, pas de classe C++ dédiée) :
+- Hero : `BP_Player` (+ `ABP_Player`).
+- Ennemis : `BP_Enemy`, `BP_EnemyBeholder` (enfant de `BP_Enemy`), `BP_EnemyAI` (AIController), `BP_EnemySpawner` (+ `ABP_Enemy`).
+- UI : `WBP_HUD`, `WBP_Loading`, `WBP_GameOver`.
 
 ### Config clé (`Config/DefaultEngine.ini`)
 - `GameDefaultMap` / `EditorStartupMap` : `/Game/Level01/Lvl_01`.
@@ -84,7 +96,9 @@ Classes C++ (Base) → Blueprints (Parents) :
 
 - **Ne jamais commiter sans demande explicite de l'utilisateur.**
 - `Binaries/`, `Intermediate/`, `DerivedDataCache/`, `Saved/`, `*.log`, `*.dll`, `*.pdb`, `*.exe` sont **ignorés** (`Build/` et `Saved/` du projet sont régénérés par les builds).
-- `Plugins/BlueprintMCP`, `Plugins/Autonomix`, `Plugins/VisualStudioTools` sont des **submodules git** — ne pas mélanger leurs commits dans celui du projet.
+- `Plugins/BlueprintMCP` et `Plugins/Autonomix` sont des **repos git embarqués** (gitlinks, **pas** de `.gitmodules`). Décision : contrôle manuel des versions. Procédure : commiter d'abord dans leur repo interne, puis `git add Plugins/<nom>` dans le projet pour figer le pointeur (son commit `160000`). Ne jamais mélanger leurs commits internes dans un commit du projet.
+  - Conséquence : `git status` les affiche comme modifiés dès que leur état interne change ; un clone du projet ne récupère pas leur contenu (seulement les pointeurs) — les cloner à part.
+- `Plugins/VisualStudioTools` est tracké en **fichiers normaux** dans le dépôt du projet.
 - Messages de commit : courts, style de l'historique existant (impératif concis, ex. « Adjust Enemy position + capsule collider »), sur une ligne.
 - Vérifier `git status` + `git diff` avant tout commit ; ne stager que les fichiers voulus ; ne jamais commiter de secrets.
 - Le fichier `Binaries/Win64/UnrealEditor.modules` est **régénéré** par le build et ignoré — ne pas le commiter.
@@ -109,6 +123,7 @@ Lancer le build depuis la racine du projet (PowerShell) :
    - Serveur MCP : `node Plugins/BlueprintMCP/Tools/dist/index.js`, port **9847**.
    - `UE_PROJECT_DIR` doit être un **chemin ABSOLU** (`C:/Codes/QiXX`) — un chemin relatif fait échouer le spawn du commandlet.
    - Si l'éditeur UE est ouvert : mode éditeur (port 9847 exposé). Sinon le serveur spawn `UnrealEditor-Cmd.exe -run=BlueprintMCP` (headless, ~10-15 s de démarrage, log dans `Saved/Logs/BlueprintMCP_server.log`).
+   - **Piège mode éditeur** : juste après le démarrage de l'éditeur, l'index peut être vide (scan parti avant la fin du chargement des assets). Dans ce cas `list_blueprints` ne montre que des assets moteur → déclencher un rescan : `POST http://localhost:9847/api/rescan` (ou outil `rescan_assets`).
    - Outils de contrôle : `server_status`, `list_blueprints`, `get_blueprint`, `get_blueprint_graph`, `search_blueprints`, `describe_graph`, `find_asset_references`, `search_by_type`, `shutdown_server` (cf. `Plugins/BlueprintMCP/CLAUDE.md`).
 3. **Vérification** : après une modification d'asset/Blueprint, re-run du build si C++ modifié, sinon validation directe dans PIE via MCP (play/stop, lecture des states).
 4. **Nettoyage** : arrêter le serveur MCP avec `shutdown_server` (ou tuer le process) ; vérifier qu'aucun `UnrealEditor-Cmd.exe` ne traîne et que le port 9847 est libéré.
