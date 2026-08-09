@@ -11,6 +11,11 @@
       "environment": {
         "UE_PROJECT_DIR": "C:/Codes/QiXX"
       }
+    },
+    "unreal-mcp": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8000/mcp",
+      "enabled": true
     }
   }
 }
