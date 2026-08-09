@@ -12,6 +12,7 @@ Guide de travail pour les agents IA (OpenCode) sur le projet QiXX.
   - `Autonomix` — assistant IA in-éditeur (LLM, exécution d'actions). **Copie trackée dans le projet** (pas de repo interne).
   - `VisualStudioTools` (inclus avec le moteur, activé) — test explorer. Tracké en **fichiers normaux**.
   - `ModelingToolsEditorMode` (inclus, activé).
+  - `ModelContextProtocol` + `AllToolsets` (inclus avec le moteur **5.8**, activés) — **Unreal MCP officiel** (expérimental Epic) : serveur HTTP `127.0.0.1:8000/mcp`, ~52 toolsets exposés via `opencode.json` (serveur remote `unreal-mcp`). Outils de référence : `editor_toolset.toolsets.scene.SceneTools` (placement/retrait d'acteurs, outliner, caméra), `editor_toolset.toolsets.actor.ActorTools`, `editor_toolset.toolsets.asset.AssetTools`, `editor_toolset.toolsets.object.ObjectTools`, `editor_toolset.toolsets.blueprint.BlueprintTools`, `editor_toolset.toolsets.material.*`. Settings dans `Config/DefaultEditorPerProjectUserSettings.ini` (section `[/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]` : port 8000, `bAutoStartServer=True`, `bEnableToolSearch=True`).
 - **Logs** : catégorie `LogQiXX` (`QiXX.h`). Toujours logger via `UE_LOG(LogQiXX, ...)`.
 
 ## Architecture
@@ -38,6 +39,12 @@ Content/
   Level01/Lvl_01             Carte par défaut (startup + gameplay)
   MonsterForSurvivalGame/ RPGTinyFantasyForest/   Assets Megascans/content packs
 ```
+
+⚠️ **`Lvl_01` est en World Partition** (external actors) : les acteurs persistés vivent dans `Content/__ExternalActors__/Level01/Lvl_01/<hex>/<hex>/<GUID>.uasset`, **pas** dans `Lvl_01.umap`. Conséquences :
+- Placer un acteur (ex. via `SceneTools.add_to_scene_from_asset`) crée un external actor séparé ; le `.umap` n'est pas modifié.
+- `AssetTools.save_assets` sur `/Game/Level01/Lvl_01` ne sauvegarde **pas** les acteurs ajoutés (le package world n'est pas marqué dirty).
+- Pour persister : `save_actor` (marche si l'acteur a un package external actor), ou Ctrl+S dans l'éditeur (écrit le `.uasset` external actor dans `__ExternalActors__`).
+- Ne pas commiter `Lvl_01.umap` seul ; commit aussi les `.uasset` nouveaux/modifiés sous `Content/__ExternalActors__/Level01/Lvl_01/`.
 
 Classes C++ (Base) → Blueprints (Parents) :
 - `AIsometricGameMode` → `BP_QiXXGameMode` (`Content/QiXX/Core/`), défini comme `GlobalDefaultGameMode` dans `DefaultEngine.ini`.
@@ -119,12 +126,17 @@ Lancer le build depuis la racine du projet (PowerShell) :
 ## Procédure de test
 
 1. **Compilation** : lancer la commande de build ci-dessus ; viser zéro erreur (les warnings C4996 de dépréciation sont tolérés mais à nettoyer si possible).
-2. **Test fonctionnel in-éditeur (PIE)** : les instructions de gameplay s'exécutent via le plugin **BlueprintMCP** (configuré dans `opencode.json`).
-   - Serveur MCP : `node Plugins/BlueprintMCP/Tools/dist/index.js`, port **9847**.
-   - `UE_PROJECT_DIR` doit être un **chemin ABSOLU** (`C:/Codes/QiXX`) — un chemin relatif fait échouer le spawn du commandlet.
-   - Si l'éditeur UE est ouvert : mode éditeur (port 9847 exposé). Sinon le serveur spawn `UnrealEditor-Cmd.exe -run=BlueprintMCP` (headless, ~10-15 s de démarrage, log dans `Saved/Logs/BlueprintMCP_server.log`).
-   - **Piège mode éditeur** : juste après le démarrage de l'éditeur, l'index peut être vide (scan parti avant la fin du chargement des assets). Dans ce cas `list_blueprints` ne montre que des assets moteur → déclencher un rescan : `POST http://localhost:9847/api/rescan` (ou outil `rescan_assets`).
-   - Outils de contrôle : `server_status`, `list_blueprints`, `get_blueprint`, `get_blueprint_graph`, `search_blueprints`, `describe_graph`, `find_asset_references`, `search_by_type`, `shutdown_server` (cf. `Plugins/BlueprintMCP/CLAUDE.md`).
+2. **Test fonctionnel in-éditeur (PIE)** : deux voies MCP coexistantes (configurées dans `opencode.json`) :
+   - **BlueprintMCP** (community, graphes BP/validation/snapshots) : `node Plugins/BlueprintMCP/Tools/dist/index.js`, port **9847**.
+     - `UE_PROJECT_DIR` doit être un **chemin ABSOLU** (`C:/Codes/QiXX`) — un chemin relatif fait échouer le spawn du commandlet.
+     - Si l'éditeur UE est ouvert : mode éditeur (port 9847 exposé). Sinon le serveur spawn `UnrealEditor-Cmd.exe -run=BlueprintMCP` (headless, ~10-15 s de démarrage, log dans `Saved/Logs/BlueprintMCP_server.log`).
+     - **Piège mode éditeur** : juste après le démarrage de l'éditeur, l'index peut être vide (scan parti avant la fin du chargement des assets). Dans ce cas `list_blueprints` ne montre que des assets moteur → déclencher un rescan : `POST http://localhost:9847/api/rescan` (ou outil `rescan_assets`).
+     - Outils de contrôle : `server_status`, `list_blueprints`, `get_blueprint`, `get_blueprint_graph`, `search_blueprints`, `describe_graph`, `find_asset_references`, `search_by_type`, `shutdown_server` (cf. `Plugins/BlueprintMCP/CLAUDE.md`).
+   - **Unreal MCP officiel** (placement d'acteurs, assets, outliner, caméra, propriétés) : serveur intégré éditeur, HTTP `http://127.0.0.1:8000/mcp` (remote `unreal-mcp` dans OpenCode).
+     - Méta-tools top-level : `list_toolsets`, `describe_toolset`, `call_tool`.
+     - **Piège naming** : `describe_toolset`/`call_tool` exigent le **nom interne complet** du toolset (ex. `editor_toolset.toolsets.scene.SceneTools`), et `call_tool` prend `toolset_name` + `tool_name` **sans** préfixe (ex. `tool_name="get_current_level"`).
+     - **Piège `find_actors`** : ses params `tag` et `collision_channels` sont required par le schéma — passer des valeurs vides (`""`, `[]`).
+     - **Limite persistance** : `add_to_scene_from_asset` ne marque pas le package dirty → `save_assets` retourne `true` sans écrire. Voir la note World Partition plus haut (persister via `save_actor` ou Ctrl+S). Toolset `SceneTools` : `get_current_level`, `find_actors`, `add_to_scene_from_asset`, `add_to_scene_from_class`, `remove_from_scene`, `save_actor`, `set_actor_folder`, `delete_folder`…
 3. **Vérification** : après une modification d'asset/Blueprint, re-run du build si C++ modifié, sinon validation directe dans PIE via MCP (play/stop, lecture des states).
-4. **Nettoyage** : arrêter le serveur MCP avec `shutdown_server` (ou tuer le process) ; vérifier qu'aucun `UnrealEditor-Cmd.exe` ne traîne et que le port 9847 est libéré.
+4. **Nettoyage** : arrêter le serveur MCP BlueprintMCP avec `shutdown_server` (ou tuer le process) ; vérifier qu'aucun `UnrealEditor-Cmd.exe` ne traîne et que le port 9847 est libéré. Le serveur officiel vit dans l'éditeur (s'arrête avec lui).
 5. **OpenCode** : la config (`opencode.json`) se charge au démarrage — après une modif de config, **redémarrer OpenCode**.
