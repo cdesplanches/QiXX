@@ -26,19 +26,38 @@ Source/QiXX/
     IsometricPlayerController.h/.cpp   AIsometricPlayerController
 
 Content/
-  QiXX/Core/                 Blueprints parents des classes C++ + input/cursor
-    BP_QiXXGameMode / BP_QiXXController / BP_QiXXCharacter
-    Input/  IMC_Default, IA_SetDestination_Click, IA_SetDestination_Touch
-    Cursor/ FX_Cursor*, M_Cursor, MI_Cursor_Red, SM_CursorMesh*, T_Arrow
-  QiXX/Characters/Hero/      BP_Player, ABP_Player
-  QiXX/Characters/Enemies/   BP_Enemy, BP_EnemyAI, BP_EnemyBeholder, BP_EnemySpawner, ABP_Enemy
-  QiXX/UI/                   WBP_HUD, WBP_Loading, WBP_GameOver
-  QiXX/Assets/               MI_Colorway
-  QiXX/Localization/         ST_UI
-  Blueprints/                Blueprints utilitaires (BP_EnemyActor, BP_EnemySpawner_C)
-  Level01/Lvl_01             Carte par défaut (startup + gameplay)
-  MonsterForSurvivalGame/ RPGTinyFantasyForest/   Assets Megascans/content packs
+  QiXX/                      CODE DU JEU — éléments généraux et réutilisables (présents dans tous les niveaux)
+    Core/                    Éléments core (GameMode, Controller, Character, input, curseur)
+      BP_QiXXGameMode / BP_QiXXController / BP_QiXXCharacter
+      Input/  IMC_Default, IA_SetDestination_Click, IA_SetDestination_Touch
+      Cursor/ FX_Cursor*, M_Cursor, MI_Cursor_Red, SM_CursorMesh*, T_Arrow
+    Characters/Hero/         Héros réutilisable dans chaque niveau : BP_Player, ABP_Player
+    Characters/Enemies/      Comportement des ennemis communs (qu'on retrouve un peu partout) : BP_Enemy, BP_EnemyAI, BP_EnemyBeholder, BP_EnemySpawner, ABP_Enemy
+    Assets/                  Assets généraux partagés (ex. MI_Colorway)
+    UI/                      Menus généraux / HUD réutilisables : WBP_HUD, WBP_Loading, WBP_GameOver
+    Localization/            String tables de localisation (ST_UI)
+  Level01/                   NIVEAU 01 — tout ce qui est SPÉCIFIQUE à ce niveau (miroir de l'arborescence QiXX)
+    Lvl_01.umap              Carte par défaut (startup + gameplay)
+    PA_Level01               PrimaryAssetLabel du niveau (ChunkId 1001, packaging)
+    Assets/                  Assets spécifiques au niveau 01
+    Characters/Enemies/      Ennemis UNIQUES à ce niveau (comme QiXX/Characters/Enemies)
+    UI/                      UI spécifiques au niveau 01
+  MonsterForSurvivalGame/ RPGTinyFantasyForest/  Paquets de contenu (Megascans/content packs) — RÉFÉRENCES seulement, ne doivent pas faire partie du build
+  Collections/ Developers/   Dossiers vides/utilitaires de l'éditeur — ne pas considérer comme du contenu de jeu
+  __ExternalActors__/ __ExternalObjects__/  Générés par World Partition — ne pas éditer à la main
 ```
+
+**Règle d'organisation** : `Content/QiXX/` = **générique/réutilisable** (parties communes du jeu, présentes dans chaque niveau). Un dossier `LevelNN/` (ex. `Level01/`) = tout ce qui est **spécifique à ce niveau** (assets, ennemis uniques, UI propres au niveau). **L'arborescence d'un `LevelNN/` reprend celle de `QiXX/`** (Assets, Characters/Enemies, UI, etc.) pour rester cohérent. Quand un nouvel élément est ajouté, se demander : réutilisable partout → `QiXX/…` ; propre à un niveau → `LevelNN/…`. Les paquets de contenu Megascans/packs (MonsterForSurvivalGame, RPGTinyFantasyForest) servent de référence mais ne doivent pas devenir des références obligatoires du build.
+
+### Packaging par niveaux téléchargeables (chunks)
+
+Chaque niveau est un **chunk distinct téléchargeable séparément** (le joueur installe le jeu de base + seulement les niveaux voulus) :
+- Chunk **0** = base (moteur + `QiXX/` partagé). Chunk **1001** = Level01, **1002** = Level02, etc.
+- `Config/DefaultGame.ini` :
+  - `[/Script/Engine.AssetManagerSettings]` : le type primaire `Map` scanne `Directories=((Path="/Game/Level01"))` (ajouter `"/Game/LevelNN"` pour chaque niveau) ; `bShouldAcquireMissingChunksOnLoad=True` (acquisition des chunks manquants au runtime).
+  - `[/Script/UnrealEd.ProjectPackagingSettings]` : `bGenerateChunks=True`.
+- Chaque niveau a un **`PrimaryAssetLabel`** (`Content/LevelNN/PA_LevelNN`) avec `bLabelAssetsInMyDirectory=True` (labelise tout le dossier du niveau récursivement) et `rules.chunkId=<1000+NN>`, `cookRule=AlwaysCook`, `bApplyRecursively=False` (le contenu partagé `QiXX/` reste en chunk 0, pas dupliqué dans chaque niveau).
+- **Procédure pour créer un `LevelNN/`** : 1) créer les dossiers (Assets, Characters/Enemies, UI) comme Level01 ; 2) créer `PA_LevelNN` (PrimaryAssetLabel) avec le `ChunkId` suivant ; 3) ajouter `"/Game/LevelNN"` à la liste des dossiers scannés du type `Map` dans `DefaultGame.ini`.
 
 ⚠️ **`Lvl_01` est en World Partition** (external actors) : les acteurs persistés vivent dans `Content/__ExternalActors__/Level01/Lvl_01/<hex>/<hex>/<GUID>.uasset`, **pas** dans `Lvl_01.umap`. Conséquences :
 - Placer un acteur (ex. via `SceneTools.add_to_scene_from_asset`) crée un external actor séparé ; le `.umap` n'est pas modifié.
