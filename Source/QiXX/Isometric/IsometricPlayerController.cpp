@@ -24,6 +24,13 @@ void AIsometricPlayerController::BeginPlay()
 		}
 	}
 
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	bShowMouseCursor = true;
+	bEnableClickEvents = true;
+	bEnableMouseOverEvents = true;
+
 	IsometricCharacter = Cast<AIsometricCharacter>(GetPawn());
 }
 

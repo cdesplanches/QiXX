@@ -13,14 +13,16 @@ public class QiXX : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
-			"EnhancedInput"
+			"EnhancedInput",
+			"UMG"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"QiXX",
-			"QiXX/Isometric"
+			"QiXX/Isometric",
+			"QiXX/Menu"
 		});
 
 		// Uncomment if you are using Slate UI
