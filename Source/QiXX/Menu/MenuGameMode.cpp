@@ -64,8 +64,13 @@ void AMenuGameMode::GetLobbyPlayerList(TArray<FString>& OutNames, TArray<bool>& 
 
 void AMenuGameMode::StartGame()
 {
-	// Preserve the current listen port so reconnecting clients can rejoin (PIE offsets the port).
-	GetWorld()->ServerTravel(AMenuPlayerController::MakeServerTravelURL(GetWorld(), TEXT("/Game/QiXX/Maps/Lvl_01?listen")), false);
+	// Preserve the current listen port so reconnecting clients can rejoin (PIE offsets the port),
+	// but explicitly set the gameplay GameMode to avoid inheriting the lobby's "game=" URL option.
+	GetWorld()->ServerTravel(
+			AMenuPlayerController::MakeServerTravelURL(
+					GetWorld(),
+					TEXT("/Game/Level01/Lvl_01?listen?game=/Game/QiXX/Core/BP_QiXXGameMode.BP_QiXXGameMode_C")),
+		false);
 }
 
 void AMenuGameMode::UpdateLobbyState()
