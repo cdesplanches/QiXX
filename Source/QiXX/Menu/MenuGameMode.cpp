@@ -64,7 +64,8 @@ void AMenuGameMode::GetLobbyPlayerList(TArray<FString>& OutNames, TArray<bool>& 
 
 void AMenuGameMode::StartGame()
 {
-	GetWorld()->ServerTravel(TEXT("Lvl_01?listen"));
+	// Preserve the current listen port so reconnecting clients can rejoin (PIE offsets the port).
+	GetWorld()->ServerTravel(AMenuPlayerController::MakeServerTravelURL(GetWorld(), TEXT("/Game/QiXX/Maps/Lvl_01?listen")), false);
 }
 
 void AMenuGameMode::UpdateLobbyState()

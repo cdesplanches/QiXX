@@ -18,6 +18,17 @@ class QIXX_API AMenuPlayerController : public APlayerController
 public:
 	AMenuPlayerController();
 
+	/** Host only: travel the server to the lobby so every connected client follows. */
+	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
+	void HostLobbyGame();
+
+	/** Client only: travel to a remote lobby listen server at the given address. */
+	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
+	void JoinLobbyGame(const FString& Address);
+
+	/** Builds a ServerTravel URL that preserves the current listen port. */
+	static FString MakeServerTravelURL(const UWorld* World, const FString& MapPath);
+
 	/** Client -> Server: toggle this player's ready state in the lobby. */
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QiXX|Menu")
 	void ServerToggleReady();

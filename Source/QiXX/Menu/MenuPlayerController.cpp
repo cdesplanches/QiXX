@@ -3,8 +3,11 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/NetDriver.h"
+#include "Engine/Engine.h"
 #include "TimerManager.h"
 
+#include "QiXX.h"
 #include "Isometric/IsometricFunctionLibrary.h"
 #include "Menu/MenuGameMode.h"
 #include "Menu/MenuGameState.h"
@@ -111,6 +114,71 @@ void AMenuPlayerController::HideActiveMenuWidget()
 		ActiveMenuWidget->RemoveFromParent();
 		ActiveMenuWidget = nullptr;
 	}
+}
+
+FString AMenuPlayerController::MakeServerTravelURL(const UWorld* World, const FString& MapPath)
+{
+	if (!World)
+	{
+		return MapPath;
+	}
+
+	// UE PIE can start a listen server on a port that does not match the default
+	// used when doing ServerTravel("... ?listen"). ServerTravel doesn't reliably
+	// preserve the PIE port, but UGameInstance::EnableListenServer uses
+	// WorldContext->LastURL.Port.
+	//
+	// So: copy the currently bound local port from the net driver into
+	// WorldContext->LastURL.Port before traveling.
+	UNetDriver* NetDriver = const_cast<UWorld*>(World)->GetNetDriver();
+	if (NetDriver)
+	{
+		if (const TSharedPtr<const FInternetAddr> LocalAddr = NetDriver->GetLocalAddr(); LocalAddr.IsValid())
+		{
+			const int32 ListenPort = LocalAddr->GetPort();
+			if (ListenPort > 0 && GEngine)
+			{
+				if (FWorldContext* WC = GEngine->GetWorldContextFromWorld(const_cast<UWorld*>(World)))
+				{
+					WC->LastURL.Port = ListenPort;
+				}
+			}
+		}
+	}
+
+	// Keep travel URL as a map URL (no host:port) because UE blocks such FURLs.
+	return MapPath;
+}
+
+void AMenuPlayerController::HostLobbyGame()
+{
+	if (!IsLocalController() || !GetWorld())
+	{
+		return;
+	}
+
+	// OpenLevel on a listen server would only travel the server and drop clients.
+	// ServerTravel carries every connected client to the lobby automatically.
+	if (GetWorld()->GetNetMode() != NM_Client)
+	{
+		GetWorld()->ServerTravel(MakeServerTravelURL(GetWorld(), TEXT("/Game/QiXX/Maps/Lvl_Lobby?listen")), false);
+	}
+}
+
+void AMenuPlayerController::JoinLobbyGame(const FString& Address)
+{
+	if (!IsLocalController() || GetNetMode() != NM_Client)
+	{
+		return;
+	}
+
+	if (Address.IsEmpty())
+	{
+		UE_LOG(LogQiXX, Warning, TEXT("JoinLobbyGame: empty address"));
+		return;
+	}
+
+	ClientTravel(Address, TRAVEL_Absolute);
 }
 
 void AMenuPlayerController::ServerToggleReady_Implementation()
