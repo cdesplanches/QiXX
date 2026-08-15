@@ -13,10 +13,10 @@ class APlayerController;
 UCLASS()
 class QIXX_API AMenuGameMode : public AGameModeBase
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	AMenuGameMode();
+    AMenuGameMode();
 
 	/** Toggles the ready state of the given player (server side). */
 	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
@@ -30,9 +30,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
 	void GetLobbyPlayerList(TArray<FString>& OutNames, TArray<bool>& OutReady) const;
 
-	/** Travels everyone to Level01 (host only). */
-	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
-	void StartGame();
+    /** Travels everyone to Level01 (host side trigger). */
+    UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
+    void StartGame();
+
+    /**
+     * Marks a given player as launched. If all players are launched, starts the game.
+     * Server-side only.
+     */
+    void PlayerLaunched(APlayerController* PC);
 
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 

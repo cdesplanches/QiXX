@@ -94,17 +94,22 @@ void AMenuPlayerController::RefreshLobbyStatus()
 
 void AMenuPlayerController::ShowWidget(TSubclassOf<UUserWidget> WidgetClass, int32 InZOrder)
 {
-	if (!WidgetClass)
-	{
-		return;
-	}
+    // Fix: ensure we only create widgets for the local player controller
+    if (!IsLocalController())
+    {
+        return;
+    }
+    if (!WidgetClass)
+    {
+        return;
+    }
 
-	UUserWidget* Widget = CreateWidget<UUserWidget>(this, WidgetClass);
-	if (Widget)
-	{
-		Widget->AddToViewport(InZOrder);
-		ActiveMenuWidget = Widget;
-	}
+    UUserWidget* Widget = CreateWidget<UUserWidget>(this, WidgetClass);
+    if (Widget)
+    {
+        Widget->AddToViewport(InZOrder);
+        ActiveMenuWidget = Widget;
+    }
 }
 
 void AMenuPlayerController::HideActiveMenuWidget()
@@ -243,4 +248,47 @@ FString AMenuPlayerController::GetLobbyStatus() const
 	}
 
 	return Status;
+}
+
+// New: Launch flow (UI calls -> RPCs -> GameMode integration)
+void AMenuPlayerController::LaunchGame()
+{
+    if (!IsLocalController())
+    {
+        return;
+    }
+    if (LoadingWidgetClass)
+    {
+        ShowWidget(LoadingWidgetClass, 100);
+    }
+    ServerLaunchGame();
+}
+
+void AMenuPlayerController::LeaveToMainMenu()
+{
+    if (!IsLocalController()) return;
+    if (GetWorld())
+    {
+        if (GetWorld()->GetNetMode() != NM_Client)
+        {
+            GetWorld()->ServerTravel(MakeServerTravelURL(GetWorld(), TEXT("/Game/QiXX/Maps/Lvl_MainMenu?listen")), false);
+        }
+        else
+        {
+            ClientTravel(TEXT("/Game/QiXX/Maps/Lvl_MainMenu"), TRAVEL_Absolute);
+        }
+    }
+}
+
+bool AMenuPlayerController::ServerLaunchGame_Validate()
+{
+    return true;
+}
+
+void AMenuPlayerController::ServerLaunchGame_Implementation()
+{
+    if (AMenuGameMode* MenuGameMode = GetWorld()->GetAuthGameMode<AMenuGameMode>())
+    {
+        MenuGameMode->PlayerLaunched(this);
+    }
 }

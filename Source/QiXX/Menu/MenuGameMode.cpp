@@ -46,7 +46,25 @@ void AMenuGameMode::PlayerPressedReady(APlayerController* PC)
 
 bool AMenuGameMode::AreAllPlayersReady() const
 {
-	return GetGameState<AMenuGameState>() ? GetGameState<AMenuGameState>()->AreAllPlayersReady() : false;
+    return GetGameState<AMenuGameState>() ? GetGameState<AMenuGameState>()->AreAllPlayersReady() : false;
+}
+
+// New: record that a player has launched and start the game when everyone is ready
+void AMenuGameMode::PlayerLaunched(APlayerController* PC)
+{
+    if (!PC)
+    {
+        return;
+    }
+    if (!ReadyPlayers.Contains(PC))
+    {
+        ReadyPlayers.AddUnique(PC);
+    }
+    UpdateLobbyState();
+    if (AreAllPlayersReady())
+    {
+        StartGame();
+    }
 }
 
 void AMenuGameMode::GetLobbyPlayerList(TArray<FString>& OutNames, TArray<bool>& OutReady) const

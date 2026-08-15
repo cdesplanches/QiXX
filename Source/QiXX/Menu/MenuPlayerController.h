@@ -26,12 +26,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
 	void JoinLobbyGame(const FString& Address);
 
-	/** Builds a ServerTravel URL that preserves the current listen port. */
-	static FString MakeServerTravelURL(const UWorld* World, const FString& MapPath);
+    /** Builds a ServerTravel URL that preserves the current listen port. */
+    static FString MakeServerTravelURL(const UWorld* World, const FString& MapPath);
 
-	/** Client -> Server: toggle this player's ready state in the lobby. */
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QiXX|Menu")
-	void ServerToggleReady();
+    /** Client -> Server: toggle this player's ready state in the lobby. (to be superseded by Launch flow) */
+    UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QiXX|Menu")
+    void ServerToggleReady();
+
+    /** Client -> Server: launch the game from the lobby (new flow). */
+    UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
+    void LaunchGame();
+
+    /** Client -> Server: leave lobby to return to main menu. */
+    UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
+    void LeaveToMainMenu();
+
+    /** Loading overlay widget class used when a player launches. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "QiXX|UI")
+    TSubclassOf<UUserWidget> LoadingWidgetClass;
+
+    /** Server RPC to start game after a player launched. */
+    UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QiXX|Menu")
+    void ServerLaunchGame();
 
 	/** Client -> Server: host requests to start the game from the lobby. */
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "QiXX|Menu")
@@ -67,6 +83,8 @@ protected:
 
 	void ServerToggleReady_Implementation();
 	void ServerStartGame_Implementation();
+	bool ServerLaunchGame_Validate();
+	void ServerLaunchGame_Implementation();
 
 	void ShowSplashAndMainMenu();
 	void ShowLobby();
