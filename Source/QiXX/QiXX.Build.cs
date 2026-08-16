@@ -14,6 +14,7 @@ public class QiXX : ModuleRules
 			"Engine",
 			"InputCore",
 			"EnhancedInput",
+			"Sockets",
 			"UMG"
 		});
 

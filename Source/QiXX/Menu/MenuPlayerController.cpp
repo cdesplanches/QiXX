@@ -1,11 +1,14 @@
 #include "Menu/MenuPlayerController.h"
 
 #include "Blueprint/UserWidget.h"
+#include "Components/EditableText.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/NetDriver.h"
 #include "Engine/Engine.h"
 #include "TimerManager.h"
+#include "IPAddress.h"
+#include "SocketSubsystem.h"
 
 #include "QiXX.h"
 #include "Isometric/IsometricFunctionLibrary.h"
@@ -54,6 +57,7 @@ void AMenuPlayerController::ShowSplashAndMainMenu()
 	else if (MainMenuWidgetClass)
 	{
 		ShowWidget(MainMenuWidgetClass);
+		ApplyMenuRoleUI();
 	}
 }
 
@@ -66,6 +70,7 @@ void AMenuPlayerController::CheckSplash()
 		if (MainMenuWidgetClass)
 		{
 			ShowWidget(MainMenuWidgetClass);
+			ApplyMenuRoleUI();
 		}
 	}
 }
@@ -172,7 +177,14 @@ void AMenuPlayerController::HostLobbyGame()
 
 void AMenuPlayerController::JoinLobbyGame(const FString& Address)
 {
-	if (!IsLocalController() || GetNetMode() != NM_Client)
+	if (!IsLocalController() || !GetWorld())
+	{
+		return;
+	}
+
+	// Joining only makes sense when not already hosting a session.
+	const ENetMode NetMode = GetWorld()->GetNetMode();
+	if (NetMode == NM_ListenServer || NetMode == NM_DedicatedServer)
 	{
 		return;
 	}
@@ -230,6 +242,67 @@ void AMenuPlayerController::GetLobbyPlayerList(TArray<FString>& OutNames, TArray
 	}
 }
 
+bool AMenuPlayerController::IsHost() const
+{
+	if (const UWorld* World = GetWorld())
+	{
+		return World->GetNetMode() != NM_Client;
+	}
+	return true;
+}
+
+FString AMenuPlayerController::GetHostAddress() const
+{
+	if (const UWorld* World = GetWorld())
+	{
+		if (UNetDriver* NetDriver = World->GetNetDriver())
+		{
+			const TSharedPtr<const FInternetAddr> LocalAddr = NetDriver->GetLocalAddr();
+			if (LocalAddr.IsValid())
+			{
+				return FString::Printf(TEXT("%s:%d"), *LocalAddr->ToString(false), LocalAddr->GetPort());
+			}
+		}
+	}
+
+	// Fallback: machine primary IP + default listen port.
+	FString PrimaryIP = TEXT("127.0.0.1");
+	if (ISocketSubsystem* Sockets = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM))
+	{
+		bool bCanBind = false;
+		const TSharedPtr<FInternetAddr> HostAddr = Sockets->GetLocalHostAddr(*GLog, bCanBind);
+		if (HostAddr.IsValid())
+		{
+			PrimaryIP = HostAddr->ToString(false);
+		}
+	}
+
+	return FString::Printf(TEXT("%s:7777"), *PrimaryIP);
+}
+
+void AMenuPlayerController::ApplyMenuRoleUI()
+{
+	if (!ActiveMenuWidget)
+	{
+		return;
+	}
+
+	const bool bHost = IsHost();
+
+	if (UWidget* CreateButton = ActiveMenuWidget->GetWidgetFromName(TEXT("CreateButton")))
+	{
+		CreateButton->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+
+	if (UWidget* IpInputWidget = ActiveMenuWidget->GetWidgetFromName(TEXT("IpInput")))
+	{
+		if (UEditableText* IpInput = Cast<UEditableText>(IpInputWidget))
+		{
+			IpInput->SetText(FText::FromString(GetHostAddress()));
+		}
+	}
+}
+
 FString AMenuPlayerController::GetLobbyStatus() const
 {
 	TArray<FString> Names;
@@ -245,6 +318,16 @@ FString AMenuPlayerController::GetLobbyStatus() const
 		}
 		Status += Names[i];
 		Status += Ready[i] ? TEXT(" [pret]") : TEXT(" [pas pret]");
+	}
+
+	// Host exposes the connection string so friends know what to type to join.
+	if (IsHost())
+	{
+		if (!Status.IsEmpty())
+		{
+			Status += TEXT("\n");
+		}
+		Status += FString::Printf(TEXT("IP: %s"), *GetHostAddress());
 	}
 
 	return Status;

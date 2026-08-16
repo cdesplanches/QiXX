@@ -26,6 +26,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
 	void JoinLobbyGame(const FString& Address);
 
+	/** True when this controller is not a client (standalone / listen server / dedicated server). */
+	UFUNCTION(BlueprintPure, Category = "QiXX|Menu")
+	bool IsHost() const;
+
+	/** Local address in "IP:port" form; falls back to machine primary IP + default port when no session is listening. */
+	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
+	FString GetHostAddress() const;
+
+	/** Applies role-aware UI on the active menu: hides Create for clients and pre-fills the join IP. */
+	UFUNCTION(BlueprintCallable, Category = "QiXX|Menu")
+	void ApplyMenuRoleUI();
+
     /** Builds a ServerTravel URL that preserves the current listen port. */
     static FString MakeServerTravelURL(const UWorld* World, const FString& MapPath);
 
